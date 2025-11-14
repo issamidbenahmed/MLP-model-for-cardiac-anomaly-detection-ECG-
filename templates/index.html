@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>🫀 Prédiction ECG</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(to right, #e6f0ff, #f2f9ff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .card {
+      background-color: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      max-width: 700px;
+      width: 90%;
+      text-align: center;
+    }
+
+    h1 {
+      color: #1d3557;
+      margin-bottom: 10px;
+    }
+
+    p {
+      color: #555;
+      font-size: 15px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      font-size: 14px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      resize: vertical;
+      margin-top: 10px;
+    }
+
+    button {
+      background-color: #457b9d;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      margin-top: 20px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #1d3557;
+    }
+
+    #result {
+      margin-top: 30px;
+      font-size: 18px;
+      color: #111;
+    }
+
+    .error {
+      color: red;
+    }
+
+    .info {
+      background: #e8f5e9;
+      padding: 10px;
+      border-radius: 8px;
+      color: #2e7d32;
+      font-size: 14px;
+      margin-top: 15px;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Prédiction ECG</h1>
+    <p>Copiez-collez une ligne du dataset (valeurs séparées par des virgules) :</p>
+
+    <textarea id="inputData" placeholder="0.1, -0.5, 1.2, ..., -0.2, 1.0"></textarea>
+
+    <button onclick="sendData()">Faire la prédiction</button>
+
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function sendData() {
+      const inputText = document.getElementById('inputData').value.trim();
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = ""; // clear previous result
+
+      if (!inputText) {
+        resultDiv.innerHTML = "<p class='error'>❗ Veuillez coller une ligne de données.</p>";
+        return;
+      }
+
+      // Découper les valeurs
+      let values = inputText.split(',').map(x => parseFloat(x.trim()));
+
+      // Si 141 valeurs (features + label), on enlève la dernière
+      if (values.length === 141) {
+        values = values.slice(0, 140);
+      }
+
+      // Vérification du format
+      if (values.length !== 140 || values.some(isNaN)) {
+        resultDiv.innerHTML = "<p class='error'>❗ La ligne doit contenir exactement 140 valeurs numériques (les features ECG).</p>";
+        return;
+      }
+
+      try {
+        // Envoi à l'API Flask
+        const res = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: values })
+        });
+
+        const json = await res.json();
+
+        if (json.error) {
+          resultDiv.innerHTML = `<p class='error'>Erreur : ${json.error}</p>`;
+        } else {
+          const prob = parseFloat(json.probabilities).toFixed(4);
+          const label = json.predictions[0];
+          const color = label == 1 ? "#e63946" : "#2a9d8f";
+          const msg = label == 1 ? "⚠️ Anomalie détectée" : "✅ Signal normal";
+
+          resultDiv.innerHTML = `
+            <p style="color:${color}; font-size:20px;"><b>${msg}</b></p>
+            <p>Probabilité : <b>${prob}</b></p>
+          `;
+        }
+      } catch (err) {
+        console.error(err);
+        resultDiv.innerHTML = "<p class='error'>❗ Erreur de communication avec l'API.</p>";
+      }
+    }
+  </script>
+</body>
+</html>

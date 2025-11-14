@@ -1,0 +1,15 @@
+# Étape 1 : choisir une image Python légère
+FROM python:3.10-slim
+
+# Étape 2 : créer un dossier de travail
+WORKDIR /app
+
+# Étape 3 : copier les fichiers nécessaires
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY train.py .
+COPY ecg_data.csv .
+
+# Étape 4 : commande à exécuter au démarrage du conteneur
+CMD ["python", "train.py"]
